@@ -3,6 +3,7 @@
 A CLI application to stream anime with [Anilist](https://anilist.co/) integration and Discord Rich Presence, written in Rust.
 
 *The application is named after the protagonist of Noragami: [Yato](https://noragami.fandom.com/wiki/Yato)*
+<p align="center"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Nandor206/yato"> <img alt="License" src="https://img.shields.io/github/license/Nandor206/yato"> <img alt="Made with Rust" src="https://img.shields.io/badge/made%20with-Rust-orange?logo=rust&logoColor=white"></p>
 
 ## Features
 - Stream anime online
