@@ -34,6 +34,8 @@ chmod +x yato
 sudo mv yato /usr/bin/
 yato
 ```
+> ##### Tested only on Fedora 42.
+> If you're using macOS and can compile Yato, I'd appreciate it if you could share the binary — it would help others install it more easily too!
 
 ### Options
 ```
