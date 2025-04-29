@@ -3,7 +3,7 @@
 
 // * Meaning of the signs:
 // ! - Important
-// ? - No use yet
+// ? - Not in use yet
 // * - Important, but not that important (usually just plain documentation, like what the function does)
 // Without the signs, it's just a plain comment
 
@@ -240,7 +240,7 @@ async fn update(client: &Client) -> Result<()> {
         "Change Progress",
         "Change Status",
         "Change Score",
-        "Override skipping settings",
+        "Override Skip Settings",
     ];
     let theme = theme::CustomTheme {};
     let select_options = Select::with_theme(&theme)
@@ -251,8 +251,7 @@ async fn update(client: &Client) -> Result<()> {
     utils::clear();
     if select_options.is_none() {
         // User pressed ESC or Q
-        println!("See you later!");
-        process::exit(0);
+        return Err(anyhow::anyhow!("No selection was made"))
     } else if select_options == Some(0) {
         let anime_id = api::anilist::user_fetch::current(&client).await?.id;
         utils::clear();
@@ -276,7 +275,7 @@ async fn update(client: &Client) -> Result<()> {
             "Rewatching",
         ];
         let selection = Select::with_theme(&theme)
-            .with_prompt("Select the status for the anime")
+            .with_prompt("Select the new status")
             .items(&options)
             .default(0)
             .interact_opt()?;
@@ -306,7 +305,7 @@ async fn update(client: &Client) -> Result<()> {
                 "Note: Overriding a config setting means doing the *opposite* of what's defined in your config file."
             );
             println!(
-                "For example, if \"skip_intro\" is set to true in the config, overriding will make it *not* skip the intro."
+                "For example, if \"skip_opening\" is set to true in the config, the override setting will make it *not* skip the opening."
             );
             println!("\nUsage: Select with space, and press enter to confirm your selection.");
             println!("Press Enter to continue...");
@@ -322,23 +321,21 @@ async fn update(client: &Client) -> Result<()> {
         utils::clear();
 
         if over_ride.is_none() {
-            println!("See you later!");
-            process::exit(0);
+            return Err(anyhow::anyhow!("No selection was made"))
         } else if over_ride == Some(0) {
             let options = vec!["Update existing override", "Add new override"];
             let theme = theme::CustomTheme {};
             let select = Select::with_theme(&theme)
-                .with_prompt("Would you like to update an existing override or add a new one?")
+                .with_prompt("Would you like to update an existing setting or add a new one?")
                 .items(&options)
                 .default(0)
                 .interact_opt()?;
             utils::clear();
             if select.is_none() {
-                println!("See you later!");
-                process::exit(0);
+                return Err(anyhow::anyhow!("No selection was made"))
             } else if select == Some(0) {
                 // Updating existing one
-                skip_override::interactive_update_override(&client).await;
+                skip_override::interactive_update_override(&client).await?;
             } else if select == Some(1) {
                 // Adding new one
                 let theme = theme::CustomTheme {};
@@ -348,15 +345,14 @@ async fn update(client: &Client) -> Result<()> {
                 let anime_id = api::anilist::fetch::search(&client, input).await?;
                 utils::clear();
 
-                let options = vec!["Intro", "Outro", "Recap"];
+                let options = vec!["Opening", "Credits", "Recap", "Filler"];
                 let selection = MultiSelect::with_theme(&theme)
                     .with_prompt("What overrides do you want to enable?")
                     .items(&options)
                     .interact_opt()?;
                 utils::clear();
                 if selection.is_none() {
-                    println!("See you later!");
-                    process::exit(0);
+                    return Err(anyhow::anyhow!("No selection was made"))
                 } else if selection.is_some() {
                     let selected = selection.unwrap();
                     let mut intro = false;
@@ -380,7 +376,7 @@ async fn update(client: &Client) -> Result<()> {
             }
         } else if over_ride == Some(1) {
             // Deleting existing one
-            skip_override::interactive_delete_override(&client).await;
+            skip_override::interactive_delete_override(&client).await?;
         }
     }
 
@@ -428,7 +424,7 @@ async fn sequel(client: &Client, anime_id: i32) -> Result<i32> {
                                     Ok(s.id)
                                 }
                             }
-                            None => Err(anyhow::anyhow!("No selection made")),
+                            None => Err(anyhow::anyhow!("No selection was made")),
                         }
                     } else {
                         println!("See you later!");
@@ -487,7 +483,7 @@ async fn watch(
                 match input.parse::<f64>() {
                     Ok(score) if score >= 1.0 && score <= 10.0 => break score,
                     _ => {
-                        eprintln!("Score must be between 1 and 10.");
+                        println!("Score must be between 1 and 10.");
                         continue;
                     }
                 }
@@ -498,8 +494,6 @@ async fn watch(
             let sequel = sequel(&client, anime_id).await;
             if let Ok(sequel_id) = sequel {
                 api::anilist::mutation::update_status(&client, sequel_id, 0).await?;
-            } else {
-                break;
             }
         } else if cur_ep == max_ep && binge {
             // * Same as above, but without scoring

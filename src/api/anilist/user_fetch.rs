@@ -5,12 +5,12 @@ use crate::skip_override;
 use crate::theme;
 use crate::utils;
 
-use log;
+use anyhow::{Context, Result};
 use dialoguer::{FuzzySelect, Input};
+use log;
 use reqwest::Client;
 use serde_json::{Value, json};
 use std::{fs, process};
-use anyhow::{Result, Context};
 
 // Constant variables
 const ANILIST_API_URL: &str = "https://graphql.anilist.co";
@@ -44,18 +44,20 @@ pub async fn check_credentials(client: &Client) -> Result<()> {
         .with_context(|| "Failed to send request to AniList API")?;
 
     if response.status().is_success() {
-        let data: Value = response.json().await
+        let data: Value = response
+            .json()
+            .await
             .with_context(|| "Failed to parse JSON response from AniList API")?;
-        
+
         if let Some(user_id) = data["data"]["Viewer"]["id"].as_i64() {
             let client_file = dirs::data_local_dir()
                 .ok_or_else(|| anyhow::anyhow!("Failed to get local data directory"))?
                 .join("yato/anilist_user_id");
-            
+
             // Write the user ID to the file
             fs::write(&client_file, user_id.to_string())
                 .with_context(|| format!("Failed to write client ID to file: {:?}", client_file))?;
-            
+
             log::info!("AniList credentials verified successfully");
             Ok(())
         } else {
@@ -64,7 +66,6 @@ pub async fn check_credentials(client: &Client) -> Result<()> {
             Err(anyhow::anyhow!("Invalid or expired token"))
         }
     } else {
-        
         log::error!("Token check failed");
         remove_token_file()?;
         Err(anyhow::anyhow!("Token check failed"))
@@ -207,12 +208,26 @@ pub async fn list_all(client: &Client, val: u8) -> Result<i32> {
                         let intro = override_setting.intro;
                         let outro = override_setting.outro;
                         let recap = override_setting.recap;
+                        let filler = override_setting.filler;
 
                         match val {
-                            0 => format!("{} - Current status: {}", title, status), // For status updating
+                            0 => format!(
+                                "{} - Current status: {}",
+                                title,
+                                status
+                                    .replace("CURRENT", "Watching")
+                                    .replace("DROPPED", "Dropped")
+                                    .replace("REPEATING", "Rewatching")
+                                    .replace("COMPLETED", "Completed")
+                                    .replace("PAUSED", "Paused")
+                                    .replace("PLANNING", "Planning")
+                            ), // For status updating
                             1 => format!("{} - Score: {}", title, score), // For score updating
-                            2 => format!("{} - intro: {} | outro: {} | recap: {}", title, intro, outro, recap), // For override updating
-                            _ => format!("{}", title), // For everything else
+                            2 => format!(
+                                "{} - opening: {} | credits: {} | recap: {} | filler: {}",
+                                title, intro, outro, recap, filler
+                            ), // For override updating
+                            _ => format!("{}", title),                    // For everything else
                         }
                     })
                     .collect();
@@ -227,14 +242,11 @@ pub async fn list_all(client: &Client, val: u8) -> Result<i32> {
                     .unwrap();
                 utils::clear();
                 if let Some(index) = selected_index {
-                    Ok(
-                        anime_list[index]["media"]["id"]
-                            .as_i64()
-                            .expect("No ID found") as i32,
-                    )
+                    Ok(anime_list[index]["media"]["id"]
+                        .as_i64()
+                        .expect("No ID found") as i32)
                 } else {
-                    println!("See you later!");
-                    process::exit(0);
+                    return Err(anyhow::anyhow!("No selection was made"))
                 }
             } else {
                 log::error!("Failed to fetch data: {}", res.status());
@@ -366,8 +378,8 @@ pub async fn current(client: &Client) -> Result<AnimeData> {
                 utils::clear();
                 if let Some(index) = selected_index {
                     let id = anime_list[index]["media"]["id"]
-                    .as_i64()
-                    .expect("No ID found") as i32;
+                        .as_i64()
+                        .expect("No ID found") as i32;
                     let progress = anime_list[index]["progress"]
                         .as_u64()
                         .expect("No progress found") as u32;
@@ -379,12 +391,9 @@ pub async fn current(client: &Client) -> Result<AnimeData> {
                         .or_else(|| anime_list[index]["media"]["title"]["romaji"].as_str())
                         .unwrap_or("Unknown Title")
                         .to_string();
-                    Ok(
-                        AnimeData::new(id, progress, episodes, name)
-                    )
+                    Ok(AnimeData::new(id, progress, episodes, name))
                 } else {
-                    println!("See you later!");
-                    process::exit(0);
+                    Err(anyhow::anyhow!("No selection was made"))
                 }
             } else {
                 log::error!("Failed to fetch data: {}", res.status());

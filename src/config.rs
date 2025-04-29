@@ -48,7 +48,7 @@ impl Default for Config {
 // Create the config file if it doesn't exist
 pub fn create(config_file: &PathBuf) -> () {
     let default_config: &str =
-r#"#Please do not remove any setting, because it will break the app.
+r#"#Please do not remove any setting, because it will break the app, just leave it as is.
 
 player: "mpv"
 player_args: ""

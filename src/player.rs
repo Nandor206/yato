@@ -14,6 +14,7 @@ use discord_rpc_client;
 use reqwest::Client;
 use std::{collections::HashMap, path::Path, time::Duration};
 use tokio::{self, sync::mpsc};
+use console::style;
 
 pub async fn play(
     client: &Client,
@@ -155,12 +156,13 @@ pub async fn play(
         .with_context(|| format!("Failed to start player with program: {}", program))?;
 
     let position = entry.position.round() as u64;
-    println!(
-        "Resuming from - {:02}:{:02}:{:02}",
+    let resuming_text = format!(
+        "{:02}:{:02}:{:02}",
         position / 3600,
         (position % 3600) / 60,
         position % 60
     );
+    println!("Resuming from - {}", style(resuming_text).bold());
 
     loop {
         // * The code is so fast it quits before the player is ready, we have to wait for it

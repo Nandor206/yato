@@ -83,8 +83,7 @@ pub async fn search(client: &Client, input: String) -> Result<i32> {
                     log::info!("AniList search completed successfully");
                     Ok(anime_list[index]["id"].as_i64().expect("No ID found") as i32)
                 } else {
-                    let error_message = "No selection made";
-                    Err(anyhow::anyhow!(error_message))
+                    Err(anyhow::anyhow!("No selection was made"))
                 }
             } else {
                 log::warn!("Failed to search. Status code: {}", res.status());

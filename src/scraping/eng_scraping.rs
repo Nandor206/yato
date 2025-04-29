@@ -175,8 +175,7 @@ async fn get_scraper_id(client: &Client, name: &str, mode: &str) -> Result<Strin
     utils::clear();
 
     if selection.is_none() {
-        println!("No selection made, exiting...");
-        process::exit(0);
+        return Err(anyhow::anyhow!("No selection was made"))
     }
     let (anime_id, _anime_name) = results[selection.unwrap()].clone();
 

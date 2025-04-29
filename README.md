@@ -1,25 +1,39 @@
 # Yato
 
-A cli application to stream anime with [Anilist](https://anilist.co/) integration and Discord RPC written in rust.
+A CLI application to stream anime with [Anilist](https://anilist.co/) integration and Discord Rich Presence, written in Rust.
 
 *The application is named after the protagonist of Noragami: [Yato](https://noragami.fandom.com/wiki/Yato)*
 
 ## Features
 - Stream anime online
 - Update anime in Anilist after completion
-- Skip anime __Intros__, __Outros__ and __Recaps__
-- Skip __Filler__ episodes
+- Skip anime __intros__, __outros__ and __recaps__
+- Skip __filler__ episodes
+- Per-anime skip overrides — configure global skip settings (e.g. skip all intros), but customize behavior for specific anime by toggling them individually
 - Discord presence
 - Local anime history to continue from where you left off last time
 - Configurable through config file
 
+## 📸 Showcase
+
+Here's a glimpse of what using Yato looks like:
+
+| Watching ReLIFE, with Discord Presence on | Updating the overrides of Tokyo Ghoul Root A |
+|-----------------|---------------|
+| ![during-anime](screenshots/during-anime.png) | ![skip-overriding](screenshots/skip-override.png) |
 
 ## Installing and Setup
-> **Note**: `Yato` requires `mpv` and only `mpv`
+> **Note**: Yato requires [MPV](https://mpv.io) as the video player (support for others like VLC may be added in the future).
 
 ### Linux
 
+```bash
+curl -Lo curd https://github.com/Nandor206/yato/releases/latest/download/yato
 
+chmod +x yato
+sudo mv yato /usr/bin/
+yato
+```
 
 ### Options
 ```
@@ -44,7 +58,7 @@ Options:
           Displays information of the anime [aliases: info]
   -n, --number <EPISODE NUMBER>
           Specify the episode number to start watching from.
-          Must be used with --anime.
+          Must be used with a [QUERY].
   -d, --discord
           Enables/Disables Discord Rich Presence
       --change-token
@@ -54,7 +68,7 @@ Options:
       --completion-time <PERCENTAGE>
           Allows user to set a different completion time
       --score-on-completion
-          Toggles scoring on completion
+          Toggle whether to set a score when the anime is marked as completed
       --skip-op
           Toggles the setting set in the config
       --skip-ed
@@ -78,7 +92,7 @@ Options:
 
 - **Continue Anime in dub with discord presence**:
   ```bash
-  yato --dub --discord-presence
+  yato --dub --discord
   ```
 
 - **Add a New Anime**:
@@ -99,11 +113,11 @@ All configurations are stored in a file you can edit with the `-e` option.
 yato -e
 ```
 
-more settings can be found at config file.
-config file is located at ```~/.config/yato/yato.conf```
+More settings can be found in the configuration file located at: 
+```~/.config/yato/yato.conf```
 
 ```yaml    
-#Please do not remove any setting, because it will break the app.
+#Please do not remove any setting, because it will break the app, just leave it as is.
 
 player: "mpv"
 player_args: ""
@@ -142,3 +156,8 @@ discord_presence: false
 
 ## Credits for the inspiration:
 #### [jerry](https://github.com/justchokingaround/jerry), [curd](https://github.com/Wraient/curd)
+
+---
+
+> Made with 🦀 and ☕ by a fan of Noragami.  
+> Want to contribute? Pull requests and feedbacks are welcome!

@@ -3,6 +3,9 @@ use crate::api::anilist::fetch;
 use crate::theme;
 use crate::utils;
 
+use anyhow::{Context, Result};
+use console::style;
+use dialoguer::MultiSelect;
 use dialoguer::Select;
 use futures::future::join_all;
 use reqwest::Client;
@@ -11,10 +14,7 @@ use serde_json;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
-use dialoguer::MultiSelect;
 use std::process;
-use anyhow::{Context, Result};
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Override {
@@ -30,8 +30,8 @@ pub fn read_settings_from_file(file_path: &str) -> Result<Vec<Override>> {
         return Ok(Vec::new());
     }
 
-    let mut file = File::open(file_path)
-        .with_context(|| format!("Failed to open file: {}", file_path))?;
+    let mut file =
+        File::open(file_path).with_context(|| format!("Failed to open file: {}", file_path))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .with_context(|| format!("Failed to read contents of file: {}", file_path))?;
@@ -49,8 +49,8 @@ fn save_settings_to_file(file_path: &str, settings: Vec<Override>) -> Result<()>
         .open(file_path)
         .with_context(|| format!("Failed to open file for writing: {}", file_path))?;
 
-    let serialized = serde_json::to_string(&settings)
-        .with_context(|| "Failed to serialize settings to JSON")?;
+    let serialized =
+        serde_json::to_string(&settings).with_context(|| "Failed to serialize settings to JSON")?;
     file.write_all(serialized.as_bytes())
         .with_context(|| format!("Failed to write to file: {}", file_path))?;
     Ok(())
@@ -121,16 +121,24 @@ pub fn delete_override(id: i32) {
     let dir_path = data_path.join("yato");
     let file_path = dir_path.join("override.json");
 
-    match read_settings_from_file(file_path.to_str().unwrap())
-        .with_context(|| format!("Failed to read settings from file: {}", file_path.to_str().unwrap()))
-    {
+    match read_settings_from_file(file_path.to_str().unwrap()).with_context(|| {
+        format!(
+            "Failed to read settings from file: {}",
+            file_path.to_str().unwrap()
+        )
+    }) {
         Ok(mut settings) => {
             let original_len = settings.len();
             settings.retain(|s| s.id != id);
 
             if settings.len() != original_len {
                 if let Err(e) = save_settings_to_file(file_path.to_str().unwrap(), settings)
-                    .with_context(|| format!("Failed to save updated settings to file: {}", file_path.to_str().unwrap()))
+                    .with_context(|| {
+                        format!(
+                            "Failed to save updated settings to file: {}",
+                            file_path.to_str().unwrap()
+                        )
+                    })
                 {
                     eprintln!("Failed to save updated settings: {}", e);
                 }
@@ -144,7 +152,7 @@ pub fn delete_override(id: i32) {
     }
 }
 
-pub async fn interactive_delete_override(client: &Client) {
+pub async fn interactive_delete_override(client: &Client) -> Result<()> {
     let data_path = dirs::data_local_dir().unwrap();
     let dir_path = data_path.join("yato");
     let file_path = dir_path.join("override.json");
@@ -153,18 +161,15 @@ pub async fn interactive_delete_override(client: &Client) {
         Ok(s) if !s.is_empty() => s,
         Ok(_) => {
             println!("No overrides found.");
-            return;
+            return Ok(())
         }
         Err(e) => {
-            eprintln!("Failed to read settings: {}", e);
-            return;
+            return Err(anyhow::anyhow!("Failed to read settings: {}", e))
         }
     };
 
     // Fetch all names concurrently using join_all
-    let name_futures = settings
-        .iter()
-        .map(|s| fetch::data_by_id(client, s.id));
+    let name_futures = settings.iter().map(|s| fetch::data_by_id(client, s.id));
     let data_vec: Vec<Result<fetch::AnimeData>> = join_all(name_futures).await;
 
     let options: Vec<String> = settings
@@ -176,31 +181,37 @@ pub async fn interactive_delete_override(client: &Client) {
                 Err(_) => "<Unknown Title>",
             };
             format!(
-                "{} | Current settings: \n\tIntro: {} | Outro: {} | Recap: {}",
-                title, s.intro, s.outro, s.recap,
+                "{} | Current override settings: \topening: {} | credits: {} | recap: {} | filler: {}",
+                title, s.intro, s.outro, s.recap, s.filler
             )
         })
         .collect();
 
     let theme = theme::CustomTheme {};
     let selection = Select::with_theme(&theme)
-        .with_prompt("Select an override to delete")
+        .with_prompt("Select a setting to delete")
         .items(&options)
         .default(0)
-        .interact();
+        .interact_opt();
     utils::clear();
 
     match selection {
-        Ok(index) => {
-            let id_to_delete = settings[index].id;
-            delete_override(id_to_delete);
-        }
+        Ok(index) => match index {
+            Some(index) => {
+                let id_to_delete = settings[index].id;
+                delete_override(id_to_delete);
+            }
+            None => {
+                return Err(anyhow::anyhow!("No selection made"));
+            }
+        },
         Err(e) => {
-            eprintln!("Selection failed: {}", e);
+            return Err(anyhow::anyhow!("Selection failed: {}", e));
         }
     }
 
     println!("Override deleted!");
+    Ok(())
 }
 
 pub fn check_override() -> bool {
@@ -208,15 +219,10 @@ pub fn check_override() -> bool {
     let dir_path = data_path.join("yato");
     let file_path = dir_path.join("override.json");
 
-    if file_path.exists() {
-        true
-    }
-    else {
-        false
-    }
+    if file_path.exists() { true } else { false }
 }
 
-pub async fn interactive_update_override(client: &Client) -> () {
+pub async fn interactive_update_override(client: &Client) -> Result<()> {
     let data_path = dirs::data_local_dir().unwrap();
     let dir_path = data_path.join("yato");
     let file_path = dir_path.join("override.json");
@@ -225,18 +231,15 @@ pub async fn interactive_update_override(client: &Client) -> () {
         Ok(s) if !s.is_empty() => s,
         Ok(_) => {
             println!("No overrides found.");
-            return;
+            return Ok(())
         }
         Err(e) => {
-            eprintln!("Failed to read settings: {}", e);
-            return;
+            return Err(anyhow::anyhow!("Failed to read settings: {}", e))
         }
     };
 
     // Fetch all names concurrently using join_all
-    let name_futures = settings
-        .iter()
-        .map(|s| fetch::data_by_id(client, s.id));
+    let name_futures = settings.iter().map(|s| fetch::data_by_id(client, s.id));
     let data_vec: Vec<Result<fetch::AnimeData>> = join_all(name_futures).await;
 
     let options: Vec<String> = settings
@@ -247,12 +250,9 @@ pub async fn interactive_update_override(client: &Client) -> () {
                 Ok(anime) => &anime.title,
                 Err(_) => "<Unknown Title>",
             };
-            format!(
-                "{}",
-                title,
-            )
+            format!("{}", title,)
         })
-        .collect();   
+        .collect();
 
     let theme = theme::CustomTheme {};
     let selection = Select::with_theme(&theme)
@@ -260,24 +260,22 @@ pub async fn interactive_update_override(client: &Client) -> () {
         .items(&options)
         .default(0)
         .clear(true)
-        .interact();
+        .interact_opt();
     utils::clear();
-    
+
     match selection {
-        Ok(index) => {
-            let id_to_update = settings[index].id;
-            let mut intro = settings[index].intro;
-            let mut outro = settings[index].outro;
-            let mut recap = settings[index].recap;
-            let mut filler = settings[index].filler;
-            
-            let options = vec![
-                "Intro",
-                "Outro",
-                "Recap",
-                "Filler"
-            ];
-            let selection = MultiSelect::with_theme(&theme)
+        Ok(index) => match index {
+            Some(index) => {
+                let anime = &options[index];
+                println!("Selected anime: {}", style(anime).blue());
+                let id_to_update = settings[index].id;
+                let mut intro = settings[index].intro;
+                let mut outro = settings[index].outro;
+                let mut recap = settings[index].recap;
+                let mut filler = settings[index].filler;
+
+                let options = vec!["Intro", "Outro", "Recap", "Filler"];
+                let selection = MultiSelect::with_theme(&theme)
                     .with_prompt("What overrides do you want to enable?")
                     .item_checked(&options[0], intro)
                     .item_checked(&options[1], outro)
@@ -289,7 +287,7 @@ pub async fn interactive_update_override(client: &Client) -> () {
                 if selection.is_none() {
                     println!("See you later!");
                     process::exit(0);
-                } else if selection.is_some() {
+                } else {
                     let selected = selection.unwrap();
                     for i in selected {
                         if i == 0 {
@@ -305,10 +303,13 @@ pub async fn interactive_update_override(client: &Client) -> () {
                     }
                     add_override(id_to_update, intro, outro, recap, filler);
                     println!("Overrides updated!");
+                    Ok(())
                 }
+            },
+            None => Err(anyhow::anyhow!("No selection made"))
         },
         Err(e) => {
-            eprintln!("Selection failed: {}", e);
+            Err(anyhow::anyhow!("Selection failed: {}", e))
         }
     }
 }

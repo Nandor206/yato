@@ -96,7 +96,7 @@ fn build() -> Command {
                 .long("number")
                 .value_name("EPISODE NUMBER")
                 .value_parser(clap::value_parser!(u32))
-                .help("Specify the episode number to start watching from.\nMust be used with --anime.")
+                .help("Specify the episode number to start watching from.\nMust be used with a [QUERY]")
                 .requires("anime")
                 .conflicts_with("edit")
                 .conflicts_with("information")
@@ -116,7 +116,7 @@ fn build() -> Command {
             Arg::new("rpc")
                 .short('d')
                 .long("discord")
-                .help("Enables/Disables Discord Rich Presence")
+                .help("Toggles Discord Rich Presence")
                 .action(ArgAction::SetTrue)
                 .conflicts_with("edit")
                 .conflicts_with("information")
@@ -150,7 +150,7 @@ fn build() -> Command {
         .arg(
             Arg::new("score-completion")
                 .long("score-on-completion")
-                .help("Toggles scoring on completion")
+                .help("Toggle whether to set a score when the anime is marked as completed")
                 .conflicts_with_all(vec!["edit", "information"])
                 .action(ArgAction::SetTrue)
                 .required(false),
@@ -206,7 +206,6 @@ pub async fn handle_args(config: &mut Config, client: &Client) -> Result<(ArgMat
             "If you want to edit the config file in another editor, please open it manually at: {}",
             config_file.display()
         );
-        println!("See you later!");
         process::exit(0);
     }
     let default_language = config.language.clone();
